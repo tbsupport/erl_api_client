@@ -1,0 +1,12 @@
+{application, erl_api_client,
+ [
+  {description, "Erlang HTTP api client"},
+  {vsn, "0.0.1"},
+  {registered, []},
+  {applications, [
+                  kernel,
+                  stdlib,
+                  hackney
+                 ]},
+  {env, []}
+ ]}.
