@@ -8,7 +8,7 @@ request(Method, Headers, Path, Params) ->
   case host() of
     false -> {error, http_unavailable};
     {Host, Options} ->
-      case ulitos_app:get_var(erl_client_api, Path) of
+      case ulitos_app:get_var(erl_api_client, Path) of
         undefined -> {error, path_not_set};
         RecPath -> 
         	case hackney:request(Method, <<Host/binary, RecPath/binary>>, Headers, params_to_payload(Params), Options) of
@@ -35,12 +35,12 @@ post(Path, Params) ->
   	request(post, post_headers(), Path, Params).
 
 host() ->
-  {Prefix, Options} = case ulitos_app:get_var(erl_client_api, http_ssl) of
+  {Prefix, Options} = case ulitos_app:get_var(erl_api_client, http_ssl) of
                         true -> {<<"https://">>, []};
                         false -> {<<"http://">>, []};
                         _ -> false
                       end,
-  case {ulitos_app:get_var(erl_client_api, http_host), Prefix} of
+  case {ulitos_app:get_var(erl_api_client, http_host), Prefix} of
     {undefined, _} -> false;
     {_, false} -> false;
     {Host, Prefix} ->
@@ -74,4 +74,4 @@ post_headers() ->
   [{<<"Content-Type">>, <<"application/x-www-form-urlencoded">>}|auth_headers()].
 
 auth_headers() ->
-  [{<<"AUTHORIZATION">>, iolist_to_binary("Token token="++ulitos_app:get_var(erl_client_api, http_auth_token))}].
+  [{<<"AUTHORIZATION">>, iolist_to_binary("Token token="++ulitos_app:get_var(erl_api_client, http_auth_token))}].
