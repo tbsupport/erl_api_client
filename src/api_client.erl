@@ -2,8 +2,6 @@
 
 -export([request/4, post/2]).
 
--include("log.hrl").
-
 request(Method, Headers, Path, Params) ->
   case host() of
     false -> {error, http_unavailable};
@@ -16,16 +14,13 @@ request(Method, Headers, Path, Params) ->
               case hackney:body(ClientRef) of
                 {ok, Body} ->
                   {JsonResponse} = jiffy:decode(Body),
-                  ?D({user_info, JsonResponse}),
                   {ok, JsonResponse};
                 {error, _Reason} ->
                   {error, hackney_error}
               end;
-				    {ok, Other, _, ClientRef} -> 
-              ?D({http_error,Other, hackney:body(ClientRef)}),
+				    {ok, _Other, _, _ClientRef} -> 
               {error, http_error};
-				    {error, Reason} -> 
-              ?D({"error calling meeting info handler ~p~n", RecPath, Reason}),
+				    {error, _Reason} -> 
               {error, req_failed}
 			    end
       end
