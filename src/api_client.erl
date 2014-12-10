@@ -12,17 +12,22 @@ request(Method, Headers, Path, Params) ->
         undefined -> {error, path_not_set};
         RecPath -> 
         	case hackney:request(Method, <<Host/binary, RecPath/binary>>, Headers, params_to_payload(Params), Options) of
-				{ok, 200, _, ClientRef} ->
-					{JsonResponse} = jiffy:decode(hackney:body(ClientRef)),
-					?D({user_info, JsonResponse}),
-					{ok, JsonResponse};
-				{ok, Other, _, ClientRef} -> 
-					?D({http_error,Other, hackney:body(ClientRef)}),
-					{error, http_error};
-				{error, Reason} -> 
-					?D({"error calling meeting info handler ~p~n", RecPath, Reason}),
-					{error, req_failed}
-			end
+				    {ok, 200, _, ClientRef} ->
+              case hackney:body(ClientRef) of
+                {ok, Body} ->
+                  {JsonResponse} = jiffy:decode(Body),
+                  ?D({user_info, JsonResponse}),
+                  {ok, JsonResponse};
+                {error, _Reason} ->
+                  {error, hackney_error}
+              end;
+				    {ok, Other, _, ClientRef} -> 
+              ?D({http_error,Other, hackney:body(ClientRef)}),
+              {error, http_error};
+				    {error, Reason} -> 
+              ?D({"error calling meeting info handler ~p~n", RecPath, Reason}),
+              {error, req_failed}
+			    end
       end
   end.
 
