@@ -1,6 +1,6 @@
 -module(api_client).
 
--export([request/4, post/2]).
+-export([request/4, get/2, post/2]).
 
 request(Method, Headers, Path, Params) ->
   case host() of
@@ -10,8 +10,16 @@ request(Method, Headers, Path, Params) ->
         undefined -> {error, path_not_set};
         RecPath ->
           {NewRecPath, NewParams} = compile_path(RecPath, Params),
-        	case hackney:request(Method, <<Host/binary, NewRecPath/binary>>, Headers, params_to_payload(NewParams), Options) of
-				    {ok, 200, _, ClientRef} ->
+          ParamsBin = params_to_payload(NewParams),
+          {Url, Body} =
+            case Method of
+              get ->
+                {<<Host/binary, NewRecPath/binary, "?", ParamsBin/binary>>, <<"">>};
+              _ ->
+                {<<Host/binary, NewRecPath/binary>>, ParamsBin}
+            end,    
+          case hackney:request(Method, Url, Headers, Body, Options) of
+            {ok, 200, _, ClientRef} ->
               case hackney:body(ClientRef) of
                 {ok, Body} ->
                   {JsonResponse} = jiffy:decode(Body),
@@ -19,16 +27,19 @@ request(Method, Headers, Path, Params) ->
                 {error, _Reason} ->
                   {error, hackney_error}
               end;
-				    {ok, _Other, _, _ClientRef} ->
+            {ok, _Other, _, _ClientRef} ->
               {error, http_error};
-				    {error, _Reason} ->
+            {error, _Reason} ->
               {error, req_failed}
-			    end
+          end
       end
   end.
 
+get(Path, Params) ->
+    request(get, auth_headers(), Path, Params).
+
 post(Path, Params) ->
-  	request(post, post_headers(), Path, Params).
+    request(post, post_headers(), Path, Params).
 
 host() ->
   {Prefix, Options} = case ulitos_app:get_var(erl_api_client, http_ssl) of
@@ -40,31 +51,31 @@ host() ->
     {undefined, _} -> false;
     {_, false} -> false;
     {Host, Prefix} ->
-    	{<<Prefix/binary, Host/binary>>, Options}
+      {<<Prefix/binary, Host/binary>>, Options}
   end.
 
   %%%%%%%%% private %%%%%%%%%%%%%%
 
 params_to_payload(Params) ->
-	params_to_payload(Params, []).
+  params_to_payload(Params, []).
 
 params_to_payload([], Acc) ->
-	list_to_binary(Acc);
+  list_to_binary(Acc);
 
 params_to_payload([{Key, Value}], Acc) ->
-	list_to_binary([print(Key), "=", print(Value)| Acc]);
+  list_to_binary([print(Key), "=", print(Value)| Acc]);
 
 params_to_payload([{Key, Value}|Params], Acc) ->
-	params_to_payload(Params, ["&", print(Key), "=", print(Value) | Acc]).
+  params_to_payload(Params, ["&", print(Key), "=", print(Value) | Acc]).
 
 print(Term) when is_list(Term) orelse is_binary(Term) ->
-	Term;
+  Term;
 
 print(Term) when is_atom(Term) ->
-	atom_to_list(Term);
+  atom_to_list(Term);
 
 print(Term) ->
-	io_lib:format("~p", [Term]).
+  io_lib:format("~p", [Term]).
 
 post_headers() ->
   [{<<"Content-Type">>, <<"application/x-www-form-urlencoded">>}|auth_headers()].
