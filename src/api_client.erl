@@ -10,15 +10,14 @@ request(Method, Headers, Path, Params) ->
         undefined -> {error, path_not_set};
         RecPath ->
           {NewRecPath, NewParams} = compile_path(RecPath, Params),
-          ParamsBin = params_to_payload(NewParams),
-          {Url, Body} =
+          {Url, BodyToSend} =
             case Method of
               get ->
-                {<<Host/binary, NewRecPath/binary, "?", ParamsBin/binary>>, <<"">>};
+                {hackney_url:make_url(Host, NewRecPath, NewParams), <<"">>};
               _ ->
-                {<<Host/binary, NewRecPath/binary>>, ParamsBin}
+                {hackney_url:make_url(Host, NewRecPath, []), hackney_url:qs(NewParams)}
             end,    
-          case hackney:request(Method, Url, Headers, Body, Options) of
+          case hackney:request(Method, Url, Headers, BodyToSend, Options) of
             {ok, 200, _, ClientRef} ->
               case hackney:body(ClientRef) of
                 {ok, Body} ->
@@ -55,27 +54,6 @@ host() ->
   end.
 
   %%%%%%%%% private %%%%%%%%%%%%%%
-
-params_to_payload(Params) ->
-  params_to_payload(Params, []).
-
-params_to_payload([], Acc) ->
-  list_to_binary(Acc);
-
-params_to_payload([{Key, Value}], Acc) ->
-  list_to_binary([print(Key), "=", print(Value)| Acc]);
-
-params_to_payload([{Key, Value}|Params], Acc) ->
-  params_to_payload(Params, ["&", print(Key), "=", print(Value) | Acc]).
-
-print(Term) when is_list(Term) orelse is_binary(Term) ->
-  Term;
-
-print(Term) when is_atom(Term) ->
-  atom_to_list(Term);
-
-print(Term) ->
-  io_lib:format("~p", [Term]).
 
 post_headers() ->
   [{<<"Content-Type">>, <<"application/x-www-form-urlencoded">>}|auth_headers()].
